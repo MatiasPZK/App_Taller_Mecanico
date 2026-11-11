@@ -61,10 +61,13 @@ class ViewMecanico(ctk.CTkFrame):
             elif estado in ["Finalizada", "Pagada"]:
                 ctk.CTkLabel(btn_box, text="✓ Lista para cobro" if estado == "Finalizada" else "✓ Pagada", text_color="#2ecc71", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=10)
 
-        def cambiar_estado(self, id_orden, nuevo_estado):
-            ok, msg = transicionar_estado_orden(id_orden, nuevo_estado)
-            if ok:
-                messagebox.showinfo("Estado Actualizado", msg)
-                self.cargar_ordenes()
-            else:
-                messagebox.showerror("Error de Transición", msg)
+    def cambiar_estado(self, id_orden: str, nuevo_estado: str):
+        """Aplica la transición de estado a la orden y recarga la vista."""
+        from core.gestion_taller import transicionar_estado_orden
+
+        ok, msg = transicionar_estado_orden(id_orden, nuevo_estado)
+        if ok:
+            messagebox.showinfo("Estado Actualizado", msg)
+            self.cargar_ordenes()  # O el método que uses para refrescar la lista/tabla
+        else:
+            messagebox.showerror("Error de Transición", msg)
