@@ -9,7 +9,7 @@ def generar_matriz_rendimiento() -> dict:
     servicios = leer_csv_como_diccionarios("servicios.csv")
     usuarios = leer_csv_como_diccionarios("usuarios.csv")
     #guardamos la cantidad de categorias y mecanicos
-    categorias = sorted(list(set(s["categorias"]for s in servicios if s.get("categoria")))) or ["General"]
+    categorias = sorted(list(set(s.get("categoria", "").strip() for s in servicios if s.get("categoria")))) or ["General"]
     mecanicos = sorted([u["username"] for u in usuarios if u.get("rol") == "MECANICO" and u.get("activo", "").lower() == "true"]) or ["Sin Asignar"]
     
     #guardamos lo anterior en estas 2 variables

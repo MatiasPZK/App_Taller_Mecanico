@@ -70,7 +70,7 @@ def registrar_usuario(username: str, password_plano: str, rol:str) -> tuple[bool
     return (True, "usuario registrado.") if agregar_registro_csv("usuarios.csv", nuevo) else (False, "error al guardar")
 
 def dar_baja_usuario(id_usuario: str) -> tuple[bool, str]:
-    """Marca un usuario como inactivo (baja lógica) y actualiza el CSV."""
+    """Marca un usuario como inactivo (baja lógica) y actualiza usuarios.csv."""
     usuarios = obtener_todos_usuarios()
     usuario_encontrado = None
 
@@ -85,10 +85,8 @@ def dar_baja_usuario(id_usuario: str) -> tuple[bool, str]:
     if usuario_encontrado.get("rol") == "ADMIN":
         return False, "No se puede dar de baja a un Administrador."
 
-    # Baja lógica
     usuario_encontrado["activo"] = "false"
 
-    # Persiste sobre data/usuarios.csv sin crear archivos duplicados
     if escribir_csv_completo("usuarios.csv", usuarios):
         return True, f"Usuario '{usuario_encontrado.get('username')}' dado de baja correctamente."
     return False, "Error al guardar los cambios en el archivo."
