@@ -45,6 +45,11 @@ class SesionManager:
             return cls.usuario_actual.get("rol", "INVITADO")
         return "INVITADO"
 
+    @classmethod
+    def obtener_usuario_actual(cls) -> dict | None:
+        """Devuelve el diccionario con los datos del usuario logueado."""
+        return cls.usuario_actual
+
 def registrar_usuario(username: str, password_plano: str, rol:str) -> tuple[bool, str]:
     if not SesionManager.tiene_permiso(["ADMIN"]):
         return False, "Solo administradores pueden crear usuarios."
@@ -65,31 +70,28 @@ def registrar_usuario(username: str, password_plano: str, rol:str) -> tuple[bool
     return (True, "usuario registrado.") if agregar_registro_csv("usuarios.csv", nuevo) else (False, "error al guardar")
 
 def dar_baja_usuario(id_usuario: str) -> tuple[bool, str]:
-    #si no sos admin, no podes dar de baja a usuarios
-    if not SesionManager.tiene_permiso(["ADMIN"]):
-        return False, "Permiso denegado"
-    #verificar si el usuario actual es un admin y si se quiere eliminarse a si mismo
-    if str(SesionManager.usuario_actual["id_usuario"])==str(id_usuario):
-        return False, "Regla RBAC: un administrador no puede eliminarse a sí mismo."
-    usuarios = leer_csv_como_diccionarios("usuarios.csv")
-    target = None
-    admins_activos = 0
+    """Marca un usuario como inactivo (baja lógica) y actualiza el CSV."""
+    usuarios = obtener_todos_usuarios()
+    usuario_encontrado = None
 
     for u in usuarios:
-        if u["activo"].lower() == "true" and u["rol"] == "ADMIN":
-            admins_activos += 1
-        if str(u["id_usuario"]) == str(id_usuario):
-            target = u
+        if str(u.get("id_usuario")) == str(id_usuario):
+            usuario_encontrado = u
+            break
 
-    if not target:
-        return False, "Usuario no encontrado."
-    #Si la etiqueta de rol es admin y los admins activos es menor a 1, no se puede 
-    #eliminar a ese administrador ya que es el unico que queda
-    if target["rol"] == "ADMIN" and admins_activos <=1:
-        return False, "Regla RBAC: no se puede eliminar al unico administrador activo"
-    #da de baja al usuario
-    target["activo"] = "False"
-    return (True, "Usuario desactivado.") if escribir_csv_completo("usuario.csv", usuarios) else (False, "Error de escritura.")
+    if not usuario_encontrado:
+        return False, f"Usuario con ID #{id_usuario} no encontrado."
+
+    if usuario_encontrado.get("rol") == "ADMIN":
+        return False, "No se puede dar de baja a un Administrador."
+
+    # Baja lógica
+    usuario_encontrado["activo"] = "false"
+
+    # Persiste sobre data/usuarios.csv sin crear archivos duplicados
+    if escribir_csv_completo("usuarios.csv", usuarios):
+        return True, f"Usuario '{usuario_encontrado.get('username')}' dado de baja correctamente."
+    return False, "Error al guardar los cambios en el archivo."
 
 def obtener_todos_usuarios() -> list[dict]:
     """Devuelve la lista completa de usuarios registrados en el sistema."""
