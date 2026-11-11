@@ -7,7 +7,7 @@ Implementa:
 """
 import customtkinter as ctk
 from tkinter import messagebox
-from core.gestor_taller import listar_ordenes, transicionar_estado_orden
+from core.gestion_taller import listar_ordenes, transicionar_estado_orden
 
 class ViewFinanzas(ctk.CTkFrame):
     def __init__(self, master):

@@ -1,0 +1,4 @@
+id_usuario,username,password_hash,rol,activo
+1,admin,240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9,ADMIN,true
+2,recepcion,39d564fa7e887f433990498b81313e61c318bd58be03a5585ee588e7343e11f1,RECEPCIONISTA (ventas),true
+3,mecanico1,710ba5f3a09fae48601c3d1fbfa550caec61476b17bb7d570ef96c21e64ff477,MECANICO,true

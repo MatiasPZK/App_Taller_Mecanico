@@ -19,9 +19,9 @@ def obtener_ruta(nombre_Archivos: str) -> str:
 
 def inicializar_archivos():
     os.makedirs(DATA_DIR, exist_ok=True)
-    for nombre, cabeceras in HEADERS.item():
+    for nombre, cabeceras in HEADERS.items():
         ruta = obtener_ruta(nombre)
-        if not os.path.exist(ruta):
+        if not os.path.exists(ruta):
             try:
                 with open(ruta, mode="w", newline="",encoding="utf-8") as f:
                     writer = csv.writer(f)

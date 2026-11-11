@@ -38,6 +38,13 @@ class SesionManager:
     def tiene_permiso(cls, roles_permitidos: list[str]) -> bool:
         return cls.usuario_actual is not None and cls.usuario_actual.get("rol") in roles_permitidos
 
+    @classmethod
+    def obtener_rol(cls) -> str:
+        """Devuelve el rol del usuario actualmente autenticado."""
+        if cls.usuario_actual:
+            return cls.usuario_actual.get("rol", "INVITADO")
+        return "INVITADO"
+
 def registrar_usuario(username: str, password_plano: str, rol:str) -> tuple[bool, str]:
     if not SesionManager.tiene_permiso(["ADMIN"]):
         return False, "Solo administradores pueden crear usuarios."
@@ -83,3 +90,7 @@ def dar_baja_usuario(id_usuario: str) -> tuple[bool, str]:
     #da de baja al usuario
     target["activo"] = "False"
     return (True, "Usuario desactivado.") if escribir_csv_completo("usuario.csv", usuarios) else (False, "Error de escritura.")
+
+def obtener_todos_usuarios() -> list[dict]:
+    """Devuelve la lista completa de usuarios registrados en el sistema."""
+    return leer_csv_como_diccionarios("usuarios.csv")

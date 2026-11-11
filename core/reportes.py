@@ -4,12 +4,12 @@ aca se genera la matriz analitica no hardcodeada que pedia la consigna
 """
 from core.persistencia import leer_csv_como_diccionarios
 
-def generar_matriz_rendimientos() -> dict:
+def generar_matriz_rendimiento() -> dict:
     ordenes = leer_csv_como_diccionarios("ordenes.csv")
     servicios = leer_csv_como_diccionarios("servicios.csv")
     usuarios = leer_csv_como_diccionarios("usuarios.csv")
     #guardamos la cantidad de categorias y mecanicos
-    categorias = sorted(list(set(s[categorias]for s in servicios if s.get("categoria")))) or ["General"]
+    categorias = sorted(list(set(s["categorias"]for s in servicios if s.get("categoria")))) or ["General"]
     mecanicos = sorted([u["username"] for u in usuarios if u.get("rol") == "MECANICO" and u.get("activo", "").lower() == "true"]) or ["Sin Asignar"]
     
     #guardamos lo anterior en estas 2 variables
