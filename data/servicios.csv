@@ -1,1 +1,4 @@
-1,Cambiar los 4 frenos,Cambio de Frenos,50000.00,57500.00
+id_servicio,detalles,categoria,precio,total_iva
+1,Cambio de Aceite y Filtro,Mantenimiento,15000.00,17250.00
+2,Pastillas de Freno,Frenos,25000.00,28750.00
+3,Alineacion y Balanceo,Tren Delantero,18000.00,20700.00

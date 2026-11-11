@@ -1,0 +1,2 @@
+id_orden,fecha,cliente,marca_modelo_patente,tipo_tarea,total,estado,metodo_pago,mecanico_asignado
+1,2026-11-11,Cliente Titular,GRX 348 - Ford Mustang 1970,Mantenimiento,17250.00,Pagada,Efectivo / Transferencia,thiago
