@@ -1,71 +1,226 @@
 """
 views_finanzas.py - Módulo de Finanzas: Presupuestos, Órdenes y Pagos
 Implementa:
-- Visualización de montos con recargo de 15% IVA.
-- Control de cobro (Efectivo / Transferencia).
-- Emisión lógica de comprobante de pago.
+- Visualización tabular optimizada estilo Excel (ttk.Treeview).
+- Resolución automática del cliente real mediante el vínculo de la patente con vehículos y clientes.
+- Control de cobro, actualización dinámica de estados operativos y condición de pago.
 """
 import customtkinter as ctk
-from tkinter import messagebox
-from core.gestion_taller import listar_ordenes, transicionar_estado_orden
+from tkinter import ttk
+from core.gestion_taller import listar_ordenes, transicionar_estado_orden, listar_vehiculos, listar_clientes
 
 class ViewFinanzas(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master, fg_color="transparent")
-        self.construir_interfaz()
+        
+        # Configurar grid principal para ocupar toda la pantalla ordenadamente
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
-    def construir_interfaz(self):
-        for widget in self.winfo_children():
-            widget.destroy()
+        # Título de la sección
+        self.titulo = ctk.CTkLabel(
+            self, 
+            text="Finanzas: Presupuestos, Órdenes y Cobranzas", 
+            font=ctk.CTkFont(size=18, weight="bold")
+        )
+        self.titulo.grid(row=0, column=0, sticky="w", padx=20, pady=(10, 2))
 
-        lbl_tit = ctk.CTkLabel(self, text="Finanzas: Presupuestos, Órdenes y Cobranzas", font=ctk.CTkFont(size=20, weight="bold"))
-        lbl_tit.pack(anchor="w", padx=20, pady=(15, 5))
+        self.subtitulo = ctk.CTkLabel(
+            self, 
+            text="Gestión de cobro, visualización de clientes y actualización interactiva de estados (+ 15% IVA aplicado).",
+            font=ctk.CTkFont(size=11),
+            text_color="gray70"
+        )
+        self.subtitulo.grid(row=1, column=0, sticky="w", padx=20, pady=(0, 10))
 
-        lbl_desc = ctk.CTkLabel(self, text="Gestión de cobro y emisión de comprobantes (+ 15% IVA aplicado según normativa del taller)", text_color="gray70")
-        lbl_desc.pack(anchor="w", padx=20, pady=(0, 15))
+        # Marco principal contenedor (Distribución 75% tabla / 25% panel de edición)
+        self.main_container = ctk.CTkFrame(self, fg_color="#1a1a1a", corner_radius=10)
+        self.main_container.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 15))
+        self.main_container.grid_columnconfigure(0, weight=4)
+        self.main_container.grid_columnconfigure(1, weight=1)
+        self.main_container.grid_rowconfigure(0, weight=1)
 
-        scroll = ctk.CTkScrollableFrame(self)
-        scroll.pack(fill="both", expand=True, padx=20, pady=(0, 15))
+        # --- ÁREA DE LA TABLA ESTILO EXCEL (TREEVIEW) ---
+        self.table_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        self.table_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.table_frame.grid_rowconfigure(0, weight=1)
+        self.table_frame.grid_columnconfigure(0, weight=1)
+
+        # Estilo profesional para ttk.Treeview en modo oscuro
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview", 
+                        background="#2b2b2b", 
+                        foreground="white", 
+                        fieldbackground="#2b2b2b", 
+                        rowheight=26,
+                        font=("Arial", 9))
+        style.configure("Treeview.Heading", 
+                        background="#333333", 
+                        foreground="white", 
+                        font=("Arial", 9, "bold"))
+        style.map("Treeview", background=[('selected', '#1f538d')])
+
+        # Columnas ajustadas para que entren perfectamente en la pantalla sin scroll horizontal
+        self.columnas = ("id", "fecha", "cliente", "vehiculo", "tipo", "total", "estado", "pago")
+        self.tree = ttk.Treeview(self.table_frame, columns=self.columnas, show="headings", selectmode="browse")
+
+        # Configurar encabezados
+        self.tree.heading("id", text="N°")
+        self.tree.heading("fecha", text="Fecha")
+        self.tree.heading("cliente", text="Cliente")
+        self.tree.heading("vehiculo", text="Vehículo / Patente")
+        self.tree.heading("tipo", text="Servicio")
+        self.tree.heading("total", text="Total c/IVA")
+        self.tree.heading("estado", text="Estado")
+        self.tree.heading("pago", text="Pago")
+
+        # Anchos proporcionales calculados para el ancho estándar de pantalla
+        self.tree.column("id", width=45, anchor="center")
+        self.tree.column("fecha", width=80, anchor="center")
+        self.tree.column("cliente", width=110, anchor="w")
+        self.tree.column("vehiculo", width=140, anchor="w")
+        self.tree.column("tipo", width=100, anchor="w")
+        self.tree.column("total", width=85, anchor="e")
+        self.tree.column("estado", width=95, anchor="center")
+        self.tree.column("pago", width=95, anchor="center")
+
+        # Scrollbar vertical
+        scrollbar = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+
+        # Evento de selección en la tabla
+        self.tree.bind("<<TreeviewSelect>>", self.cargar_datos_en_panel_edicion)
+
+        # --- PANEL LATERAL DE EDICIÓN RÁPIDA ---
+        self.edit_panel = ctk.CTkFrame(self.main_container, fg_color="#242424", corner_radius=8)
+        self.edit_panel.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
+        self.edit_panel.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            self.edit_panel, 
+            text="Editar Orden", 
+            font=ctk.CTkFont(size=13, weight="bold")
+        ).grid(row=0, column=0, padx=12, pady=(12, 5), sticky="w")
+
+        self.lbl_seleccionada = ctk.CTkLabel(self.edit_panel, text="Seleccione una orden", text_color="gray70", font=("Arial", 10))
+        self.lbl_seleccionada.grid(row=1, column=0, padx=12, pady=(0, 10), sticky="w")
+
+        # Selector de Estado Operativo
+        ctk.CTkLabel(self.edit_panel, text="Estado Operativo:", font=("Arial", 10, "bold")).grid(row=2, column=0, padx=12, sticky="w")
+        self.combo_estado = ctk.CTkComboBox(
+            self.edit_panel, 
+            values=["Pendiente", "En Reparacion", "Finalizada", "Pagada", "Cancelada"],
+            state="readonly",
+            width=190,
+            height=28
+        )
+        self.combo_estado.grid(row=3, column=0, padx=12, pady=(3, 10), sticky="w")
+
+        # Selector de Condición de Pago
+        ctk.CTkLabel(self.edit_panel, text="Condición de Pago:", font=("Arial", 10, "bold")).grid(row=4, column=0, padx=12, sticky="w")
+        self.combo_pago = ctk.CTkComboBox(
+            self.edit_panel, 
+            values=["Pendiente", "Efectivo", "Transferencia", "Tarjeta Débito", "Tarjeta Crédito"],
+            state="readonly",
+            width=190,
+            height=28
+        )
+        self.combo_pago.grid(row=5, column=0, padx=12, pady=(3, 15), sticky="w")
+
+        # Botón para Guardar Cambios
+        self.btn_guardar = ctk.CTkButton(
+            self.edit_panel, 
+            text="Actualizar Orden", 
+            fg_color="#1f538d", 
+            hover_color="#143d6a",
+            command=self.guardar_cambios_orden,
+            width=190,
+            height=30
+        )
+        self.btn_guardar.grid(row=6, column=0, padx=12, pady=5, sticky="w")
+
+        # Mensaje de feedback
+        self.lbl_feedback = ctk.CTkLabel(self.edit_panel, text="", text_color="lightgreen", font=("Arial", 10))
+        self.lbl_feedback.grid(row=7, column=0, padx=12, pady=5, sticky="w")
+
+        # Cargar datos iniciales
+        self.actualizar_tabla()
+
+    def actualizar_tabla(self):
+        """Limpia y carga las órdenes resolviendo automáticamente el cliente real desde vehículos y clientes."""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
 
         ordenes = listar_ordenes()
-        if not ordenes:
-            ctk.CTkLabel(scroll, text="No hay registros financieros ni órdenes emitidas.", font=ctk.CTkFont(size=14)).pack(pady=40)
-            return
+        
+        # Mapear vehículos y clientes para resolución automática
+        vehiculos = listar_vehiculos()
+        clientes_dict = {str(c['id_cliente']).strip(): c['nombre'] for c in listar_clientes()}
+        vehiculo_a_cliente = {}
+        for v in vehiculos:
+            patente = v.get('patente', '').strip().upper()
+            id_cli = str(v.get('id_cliente', '')).strip()
+            if patente and id_cli:
+                vehiculo_a_cliente[patente] = id_cli
 
         for o in ordenes:
-            card = ctk.CTkFrame(scroll)
-            card.pack(fill="x", padx=10, pady=8)
+            cliente_val = o.get('cliente', 'N/D')
+            veh_info = o.get('marca_modelo_patente', '')
 
-            txt = (
-                f"Orden #{o['id_orden']}  |  Fecha: {o['fecha']}  |  Vehículo: {o['marca_modelo_patente']}\n"
-                f"Servicio: {o['tipo_tarea']}  |  Monto Total c/15% IVA: ${float(o['total']):,.2f}\n"
-                f"Estado Operativo: {o['estado']}  |  Condición de Pago: {o['metodo_pago']}"
-            )
-            ctk.CTkLabel(card, text=txt, justify="left", font=ctk.CTkFont(size=12)).pack(side="left", padx=20, pady=12)
+            # Si el cliente dice "Cliente Titular" o está vacío, intentamos buscar el nombre real por patente
+            if cliente_val in ["Cliente Titular", "", "N/D"]:
+                veh_info_upper = veh_info.upper()
+                for patente, id_cli in vehiculo_a_cliente.items():
+                    if patente in veh_info_upper:
+                        if id_cli in clientes_dict:
+                            cliente_val = clientes_dict[id_cli]
+                            break
 
-            acciones = ctk.CTkFrame(card, fg_color="transparent")
-            acciones.pack(side="right", padx=20, pady=12)
+            self.tree.insert("", "end", values=(
+                f"#{o.get('id_orden')}",
+                o.get('fecha'),
+                cliente_val,
+                veh_info,
+                o.get('tipo_tarea', 'General'),
+                f"${float(o.get('total', 0)):,.2f}",
+                o.get('estado', 'Pendiente'),
+                o.get('metodo_pago', 'Pendiente')
+            ))
 
-            if o["estado"] == "Finalizada" and o["metodo_pago"] == "Pendiente":
-                btn_cobro = ctk.CTkButton(
-                    acciones,
-                    text="Cobrar y Emitir Comprobante",
-                    fg_color="#2b7a4b",
-                    hover_color="#1e5835",
-                    width=210,
-                    height=36,
-                    command=lambda oid=o["id_orden"], m=o["total"]: self.registrar_cobranza(oid, m)
-                )
-                btn_cobro.pack(side="left", padx=5)
-            elif o["estado"] == "Pagada":
-                ctk.CTkLabel(acciones, text="[COBRADO - COMPROBANTE EMITIDO]", text_color="#27ae60", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=10)
-            else:
-                ctk.CTkLabel(acciones, text=f"[En Proceso: {o['estado']}]", text_color="gray60").pack(side="left", padx=10)
+    def cargar_datos_en_panel_edicion(self, event):
+        """Rellena el panel lateral cuando el usuario selecciona una fila."""
+        seleccion = self.tree.selection()
+        if not seleccion:
+            return
+        
+        item = self.tree.item(seleccion)
+        valores = item.get("values")
+        if valores:
+            id_orden_limpio = valores[0].replace("#", "")
+            self.lbl_seleccionada.configure(text=f"Orden #{id_orden_limpio} - {valores[2]}", text_color="white")
+            self.combo_estado.set(valores[6])
+            self.combo_pago.set(valores[7])
+            self.lbl_feedback.configure(text="")
 
-    def registrar_cobranza(self, id_orden, monto):
-        ok, msg = transicionar_estado_orden(id_orden, "Pagada", metodo_pago="Efectivo / Transferencia")
-        if ok:
-            messagebox.showinfo("Comprobante Emitido", f"¡Pago registrado exitosamente para la Orden #{id_orden}!\nMonto liquidado con 15% IVA: ${float(monto):,.2f}\nComprobante de cobro emitido y archivado.")
-            self.construir_interfaz()
+    def guardar_cambios_orden(self):
+        """Aplica la modificación de estado y método de pago."""
+        seleccion = self.tree.selection()
+        if not seleccion:
+            self.lbl_feedback.configure(text="Seleccione una orden.", text_color="orange")
+            return
+
+        item = self.tree.item(seleccion)
+        id_orden = item.get("values")[0].replace("#", "")
+        nuevo_estado = self.combo_estado.get()
+        nuevo_pago = self.combo_pago.get()
+
+        exito, mensaje = transicionar_estado_orden(id_orden, nuevo_estado, nuevo_pago)
+        if exito:
+            self.lbl_feedback.configure(text="¡Actualizado!", text_color="lightgreen")
+            self.actualizar_tabla()
         else:
-            messagebox.showerror("Error de Cobro", msg)
+            self.lbl_feedback.configure(text=mensaje, text_color="salmon")
